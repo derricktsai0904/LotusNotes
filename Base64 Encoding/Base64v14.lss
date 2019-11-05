@@ -1,0 +1,457 @@
+'Base64 1.4: 
+
+Option Public
+Option Explicit
+
+%REM
+This set of functions will allow you to encode and decode strings and files
+in Base64 format. The implementation is all in LotusScript, and requires no
+external DLLs or tricks. It was written and tested in R5, but it should be
+backwards compatible to at least 4.6
+
+This is the 1.4 "release" of the functions, from December 28, 2002. 
+The code was originally written by Julian Robichaux, and is maintained
+by him on the http://www.nsftools.com website.
+
+Release History:
+1.4 (Dec 28, 2002)
+  --  fixed TrimBytesFromFile function to properly handle writing odd numbers
+      of bytes to a new file (thanks to Peter Leugner at www.as-computer.de)
+
+1.3 (Dec 26, 2002)
+  --  Modified DecodeFile function to properly handle the line terminators
+      that the Print statement adds
+  --  Fixed GetFileChunk function to properly read the last byte in a file
+
+1.2 (Dec 17, 2002)
+  --  Added functions for encrypting and decrypting entire files
+
+1.1 (Nov 5, 2002)
+  --  Fixed typo/error in EncodeBase64 function
+
+1.0 (Nov 1, 2002)
+  --  Initial release
+%END REM
+
+
+'** the characters used to encode in Base64, in order of appearance
+Const b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+
+Sub Initialize
+	'** examples of using the Base64 functions in this agent
+	Dim eString As String, dString As String
+	Dim isOkay As Integer
+	
+	eString = "QUJDREVGRw=="		'** ABCDEFG
+	dString = DecodeBase64(eString)
+	
+	isOkay = IsBase64(eString)
+	
+	eString = EncodeBase64("AbCdEfG" & Chr(0) & "123")
+	eString = BreakString(eString, 5)
+	dString = DecodeBase64(eString)
+	
+	isOkay = IsBase64(RemoveWhitespace(eString))
+	isOkay = IsBase64(dString)
+	
+	isOkay = EncodeFile("C:\Autoexec.bat", "C:\Autoexec.enc")
+	isOkay = DecodeFile("C:\Autoexec.enc", "C:\Autoexec.dec")
+End Sub
+
+Function DecodeBase64 (Byval encText As String) As String
+	'** This function will decode a Base64 string. It's probably a good
+	'** idea to check the validity of the string with the IsBase64 function
+	'** prior to processing it, to avoid strange errors.
+	'** by Julian Robichaux -- http://www.nsftools.com
+	On Error Goto endOfFunction
+	
+	Dim encNum As Long
+	Dim decText As String
+	Dim i As Integer
+	
+	'** remove any line termination characters and whitespace first
+	encText = RemoveWhitespace(encText)
+	
+	For i = 1 To Len(encText) Step 4
+		'** convert the next 2 of 4 characters to a number we can decode
+		encNum = (Instr(b64chars, Mid$(encText, i, 1)) - 1) * (2 ^ 18)
+		encNum = encNum Or ((Instr(b64chars, Mid$(encText, i+1, 1)) - 1) * (2 ^ 12))
+		
+		'** deal with trailing '='
+		If (Mid$(encText, i+2, 1) = "=") Then
+			decText = decText & Chr(Fix(encNum / (2 ^ 16)) And &HFF)
+		Elseif (Mid$(encText, i+3, 1) = "=") Then
+			encNum = encNum Or ((Instr(b64chars, Mid$(encText, i+2, 1)) - 1) * (2 ^ 6))
+			decText = decText & Chr(Fix(encNum / (2 ^ 16)) And &HFF)
+			decText = decText & Chr(Fix(encNum / (2 ^ 8)) And &HFF)
+		Else
+			encNum = encNum Or ((Instr(b64chars, Mid$(encText, i+2, 1)) - 1) * (2 ^ 6))
+			encNum = encNum Or (Instr(b64chars, Mid$(encText, i+3, 1)) - 1)
+			decText = decText & Chr(Fix(encNum / (2 ^ 16)) And &HFF)
+			decText = decText & Chr(Fix(encNum / (2 ^ 8)) And &HFF)
+			decText = decText & Chr(encNum And &HFF)
+		End If
+		
+	Next
+	
+endOfFunction:
+	DecodeBase64 = decText
+	Exit Function
+	
+End Function
+
+Function EncodeBase64 (decText As String) As String
+	'** This function will Base64 encode a string. The string doesn't have to
+	'** be text-only, either. You can also encode strings of non-ASCII data,
+	'** like the contents of a binary file. If you're encoding a whole file,
+	'** make sure you break the contents into lengths divisible by three, so
+	'** you can concatenate them together properly.
+	'** by Julian Robichaux -- http://www.nsftools.com
+	On Error Goto endOfFunction
+	
+	Dim decNum As Long
+	Dim encText As String
+	Dim chunk As String
+	Dim i As Integer
+	
+	For i = 1 To Len(decText) Step 3
+		'** pad the 3-character string with Chr(0), if need be
+		chunk = Left$(Mid$(decText, i, 3) & Chr(0) & Chr(0), 3)
+		
+		'** get the number we'll use for encoding
+		decNum = Asc(Mid$(chunk, 1, 1)) * (2 ^ 16)
+		decNum = decNum Or Asc(Mid$(chunk, 2, 1)) * (2 ^ 8)
+		decNum = decNum Or Asc(Mid$(chunk, 3, 1))
+		
+		'** calculate the first 2 of 4 encoded characters
+		encText = encText & Mid$(b64chars, (Fix(decNum / (2 ^ 18)) And &H3F) + 1, 1)
+		encText = encText & Mid$(b64chars, (Fix(decNum / (2 ^ 12)) And &H3F) + 1, 1)
+		
+		'** pad with '=' as necessary when we reach the end of the string
+		Select Case ( Len(decText) - i )
+		Case 0 :
+			encText = encText & "=="
+		Case 1 :
+			encText = encText & Mid$(b64chars, (Fix(decNum / (2 ^ 6)) And &H3F) + 1, 1)
+			encText = encText & "="
+		Case Else :
+			encText = encText & Mid$(b64chars, (Fix(decNum / (2 ^ 6)) And &H3F) + 1, 1)
+			encText = encText & Mid$(b64chars, (decNum And &H3F) + 1, 1)
+		End Select
+		
+	Next
+	
+endOfFunction:	
+	EncodeBase64 = encText
+	Exit Function
+	
+End Function
+
+Function IsBase64 (someString As String) As Integer
+	'** check to see if the string is a well-formed Base64 string
+	Dim legalString As String
+	Dim i As Integer
+	
+	IsBase64 = False
+	legalString = b64chars & "="
+	
+	'** check for bad string length (must be a multiple of 4)
+	If (Len(someString) Mod 4 > 0) Then
+		Exit Function
+	End If
+	
+	'** check for illegal characters
+	For i = 1 To Len(someString)
+		If (Instr(legalString, Mid$(someString, i, 1)) = 0) Then
+			Exit Function
+		End If
+	Next
+	
+	'** make sure any '=' are only at the end
+	Select Case (Instr(someString, "="))
+	Case 0 :
+		'** no equals signs is okay
+	Case Is < (Len(someString) - 1) :
+		Exit Function
+	Case (Len(someString) - 1) :
+		If (Right$(someString, 1) <> "=") Then
+			Exit Function
+		End If
+	End Select
+	
+	'** if we made it through all the conditions, then the string looks good
+	IsBase64 = True
+	
+End Function
+
+Function BreakString (text As String, lineLength As Integer) As String
+	'** add line terminators to a string at the given interval
+	Dim newText As String
+	Dim lineTerm As String
+	Dim i As Integer
+	
+	lineTerm = Chr(13) & Chr(10)
+	
+	For i = 1 To Len(text) Step lineLength
+		newText = newText & Mid$(text, i, lineLength) & lineTerm
+	Next
+	
+	newText = Left$(newText, Len(newText) - Len(lineTerm))
+	BreakString = newText
+End Function
+
+Function RemoveWhitespace (Byval text As String) As String
+	'** remove line terminators, spaces, and tabs from a string
+	Call ReplaceSubstring(text, Chr(13), "")
+	Call ReplaceSubstring(text, Chr(10), "")
+	Call ReplaceSubstring(text, Chr(9), "")
+	Call ReplaceSubstring(text, " ", "")
+	
+	RemoveWhitespace = text
+End Function
+
+Function ReplaceSubstring (text As String, find As String, replace As String)
+	Dim pos As Integer
+	pos = Instr(text, find)
+	
+	Do While (pos > 0)
+		text = Left$(text, pos - 1) & replace & Mid$(text, pos + Len(find))
+		pos = Instr(pos + Len(replace), text, find)
+	Loop
+End Function
+
+Function EncodeFile (fileIn As String, fileOut As String) As Integer
+	'** Base64 encode an entire file (fileIn) and write the output to
+	'** another file (fileOut). We're writing the output to another file
+	'** because there's a possibility that the output will be larger than
+	'** 32,000 characters, which would overflow an output String.
+	On Error Goto processError
+	
+	Dim fin As Integer, fout As Integer
+	Dim finOpen As Integer, foutOpen As Integer
+	Dim datain As String, dataout As String
+	Dim worktext As String, leftover As String
+	Const CHUNKSIZE = 15000
+	
+	'** open the files for input/output (if there are any errors here,
+	'** we'll exit in the processError section at the bottom)
+	fin = Freefile()
+	Open fileIn For Input As fin
+	finOpen = True
+	fout = Freefile
+	Open fileOut For Output As fout
+	foutOpen = True
+	
+	'** start getting data from the input file, encoding it, and sending it
+	'** to the output file
+	datain = GetFileChunk(fin, CHUNKSIZE)
+	Do While (Len(datain) > 0)
+		'** encode in groups of 57 characters, which will give us output
+		'** in lines of 76 characters (fairly standard)
+		leftover = leftover & datain
+		While (Len(leftover) > 57)
+			worktext = Left$(leftover, 57)
+			leftover = Mid$(leftover, 58)
+			dataout = EncodeBase64(worktext)
+			Print #fout, dataout
+		Wend
+		datain = GetFileChunk(fin, CHUNKSIZE)
+	Loop
+	
+	'** encode anything we had left, and close the files
+	If (Len(leftover) > 0) Then
+		Print #fout, EncodeBase64(leftover)
+	End If
+	
+	Close #fin, #fout
+	EncodeFile = True
+	Exit Function
+	
+processError:
+	If (finOpen) Then Close #fin
+	If (foutOpen) Then Close #fout
+	EncodeFile = False
+	Exit Function
+	
+End Function
+
+Function DecodeFile (fileIn As String, fileOut As String) As Integer
+	'** Base64 decode an entire file (fileIn) and write the output to
+	'** another file (fileOut). We're writing the output to another file
+	'** because there's a possibility that the output will be larger than
+	'** 32,000 characters, which would overflow an output String.
+	On Error Goto processError
+	
+	Dim fin As Integer, fout As Integer
+	Dim finOpen As Integer, foutOpen As Integer
+	Dim datain As String, dataout As String
+	Dim worktext As String, leftover As String
+	Const CHUNKSIZE = 16000
+	
+	'** figure out how long the line terminator character is
+	Dim session As New NotesSession
+	Dim lineTermLen As Integer
+	If (Instr(session.Platform, "Windows") > 0) Then
+		lineTermLen = 2
+	Else
+		lineTermLen = 1
+	End If
+	
+	'** open the files for input/output (if there are any errors here,
+	'** we'll exit in the processError section at the bottom)
+	fin = Freefile()
+	Open fileIn For Input As fin
+	finOpen = True
+	fout = Freefile
+	Open fileOut For Output As fout
+	foutOpen = True
+	
+	'** start getting data from the input file, encoding it, and sending it
+	'** to the temporary output file
+	datain = GetFileChunk(fin, CHUNKSIZE)
+	Do While (Len(datain) > 0)
+		datain = RemoveWhitespace(datain)
+		
+		'** make sure we're decoding in groups of characters
+		'** that are multiples of 4
+		leftover = leftover & datain
+		worktext = Left$(leftover, Len(leftover) - (Len(leftover) Mod 4))
+		leftover = Right$(leftover, Len(leftover) Mod 4)
+		dataout = DecodeBase64(worktext)
+		Print #fout, dataout
+		'** adjust the cursor position so we overwrite the line terminator that's
+		'** automatically been appended to the end of the line by Print
+		Seek #fout, Seek(fout) - lineTermLen
+		
+		datain = GetFileChunk(fin, CHUNKSIZE)
+	Loop
+	
+	'** decode anything we had left, and close the files
+	If (Len(leftover) > 0) Then
+		Print #fout, leftover
+	End If
+	
+	Close #fin, #fout
+	finOpen = False
+	foutOpen = False
+	
+	'** okay, so here's the problem: the Print statement automatically appends
+	'** a line terminator to the end of all the lines it printed. We accounted for
+	'** this while we were writing to the output file in the Do While loop, but
+	'** there's going to be an extra line terminator at the end of the file that we
+	'** couldn't do anything about. So we'll need to copy all but the last one or
+	'** two bytes (depending on the length of the line terminator on this platform)
+	'** from the temporary output file to the output file that the user wants using
+	'** Get and Put commands. We couldn't use Put before because when Put
+	'** writes a text string to a file, it always writes the Unicode version of the
+	'** string, which isn't what we wanted (try it sometime and see how it looks...)
+	'** The TrimBytesFromFile function will take care of the problem.
+	Call TrimBytesFromFile(fileOut, lineTermLen)
+	
+	DecodeFile = True
+	Exit Function
+	
+processError:
+	If (finOpen) Then Close #fin
+	If (foutOpen) Then Close #fout
+	DecodeFile = False
+	Exit Function
+	
+End Function
+
+Function GetFileChunk (fileNum As Integer, size As Integer) As String
+	'** get the next chunk of text from a Random file, up to a given size
+	On Error Goto processError
+	Dim dataLength As Long
+	
+	dataLength = Lof(fileNum) - Seek(fileNum) + 1
+	Select Case (dataLength)
+	Case Is <= 0
+		GetFileChunk = ""
+	Case Is > size
+		GetFileChunk = Input$(size, fileNum)
+	Case Else
+		GetFileChunk = Input$(Cint(dataLength), fileNum)
+	End Select
+	
+	Exit Function
+	
+processError:
+	GetFileChunk = ""
+	Exit Function
+	
+End Function
+
+Function TrimBytesFromFile (fileName As String, bytesToTrim As Integer)
+	'** trim the specified number of bytes from the end of the specified
+	'** file by copying the file contents to a temporary file using Get and
+	'** Put, and then deleting the specified file and replacing it with
+	'** the temporary file
+	On Error Goto processError
+	
+	Dim tempFileName As String
+	Dim fin As Integer, fout As Integer
+	Dim finOpen As Integer, foutOpen As Integer
+	Dim dataLength As Long
+	Dim lineLength As Integer
+	Dim data As String
+	Dim dataInt As Integer
+	Const CHUNKSIZE = 15000
+	
+	tempFileName = fileName & ".tmp"
+	
+	fin = Freefile()
+	Open fileName For Binary As fin
+	finOpen = True
+	fout = Freefile()
+	Open tempFileName For Binary As fout
+	foutOpen = True
+	
+	'** this works almost exactly like the GetFileChunk function, subtracting
+	'** bytesToTrim when we reach the last "chunk" of the file
+	dataLength = Lof(fin) - Seek(fin) + 1 - bytesToTrim
+	Do While (dataLength > 1)
+		If (dataLength > CHUNKSIZE) Then
+			lineLength = CHUNKSIZE
+		Else
+			lineLength = Cint(dataLength)
+		End If
+		
+		'** a LotusScript string is actually 2 bytes per character, so we only
+		'** want to get a string that's half the length of the number of bytes
+		'** that we need
+		data = Space$(Fix(lineLength / 2))
+		Get #fin, , data
+		Put #fout, , data
+		
+		dataLength = Lof(fin) - Seek(fin) + 1 - bytesToTrim
+	Loop
+	
+	'** if there's only one more byte to read, we need to back up one byte
+	'** because there are no one-byte data types in LotusScript prior to R6,
+	'** so we're always writing an even number of bytes at a time
+	If (dataLength = 1) Then
+		Seek #fin, Seek(fin) - 1
+		Seek #fout, Seek(fout) - 1
+		Get #fin, , dataInt
+		Put #fout, , dataInt
+	End If
+	
+	Close #fin, #fout
+	finOpen = False
+	foutOpen = False
+	
+	'** once all the files are closed, delete the original file and rename the
+	'** temporary file so it becomes the original
+	Kill fileName
+	Name tempFileName As fileName
+	Exit Function
+	
+processError:
+	If (finOpen) Then Close #fin
+	If (foutOpen) Then Close #fout
+	Exit Function
+	
+End Function
+

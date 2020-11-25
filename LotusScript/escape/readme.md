@@ -2,8 +2,8 @@
 
 ## 程式說明
 
-[以下程式來源 ESP8266-Blink.ino ]:https://github.com/derricktsai0904/Arduino/blob/master/04%20NodeMCU/Blink/ESP8266-Blink.ino "ESP8266-Blink.ino"
-[以下程式來源 ESP8266-Blink.ino ]
+[以下程式來源 escapeLib.lss ]:https://github.com/derricktsai0904/LotusNotes/blob/master/LotusScript/escape/escapeLib.lss "escapeLib.lss"
+[以下程式來源 escapeLib.lss ]
 ``` Lotus Script
 '// escape 函式  可與 javascript escape、unescape 互通
 Function escape(Byval s$) As String

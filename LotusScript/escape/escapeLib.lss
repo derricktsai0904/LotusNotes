@@ -1,0 +1,61 @@
+'escapeLib: 
+
+Option Public
+Function escape(Byval s$) As String
+	Const cstEsps="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,44,58,59,60,61,62,63,91,92,93,94,96"
+	
+	mValue = s$	
+	Dim str1,int1,strRet As String
+	Dim i As Integer
+	For i=1 To Len(mValue)
+		str1=Mid(mValue,i,1)
+		int1=Uni(str1)
+		If int1>255 Then
+			strRet=strRet+"%u"+Right("0000"+Hex$(int1),4)
+		Elseif int1>122 Then	
+			strRet=strRet+"%"+Right("00"+Hex$(int1),2)
+		Else
+			'normal chars
+			strRet=strRet+str1
+		End If
+	Next
+	escape = strRet
+End Function
+Function unescape(Byval s$) As String
+	On Error Resume Next
+	
+	Dim pos1,pos2
+	Dim strT As String,str1
+	Dim strRet As String
+	
+	strT=s$	
+	While strT<>""
+		pos1=Instr(strT,"%")
+		If pos1>0 Then
+			strRet=strRet+Left(strT,pos1-1)
+			pos2=Instr(strT,"%u")	'%u
+			If pos2=pos1 Then
+				'如果是一255以上的
+				str1=Mid(strT,pos2+2,4)
+				If Len(str1)<4 Then 
+					'不合法的字符串					
+				End If				
+				aa = Uchr(Clng("&H"+str1))
+				strRet=strRet+aa
+				strT=Right(strT,Len(strT)-pos2-5)
+			Else
+				str1=Mid(strT,pos1+1,2)
+				If Len(str1)<2 Then 
+					'不合法的字符串
+				End If
+				strRet=strRet+Uchr(Clng("&H"+str1))
+				strT=Right(strT,Len(strT)-pos1-2)
+			End If
+		Else
+			strRet=strRet+strT
+			strT=""
+		End If
+	Wend
+	unescape=strRet
+End Function
+

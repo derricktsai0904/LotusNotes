@@ -4,7 +4,9 @@
 
 Line 官方帳號申請網址 :  https://developers.line.biz/en/
 
-如下圖中，找到 Channel token ID，
+如下圖中，找到 Channel access token
+
+
 
 
 ## 程式說明
@@ -18,7 +20,8 @@ Sub Initialize
 	
 	url = "https://api.line.me/v2/bot/message/push"    '// Line Bot Message API 的 Post 網址
 
-	TOKEN_KEY = "111111111111222222222222222233333333333333aaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbccccccc"  '// 請參閱 Line 官方帳號的 Channel token ID
+	TOKEN_KEY = "111111111111222222222222222233333333333333aaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbccccccc"
+        '// 請參閱 Line 官方帳號的 Channel access token
 	
 	
 	Dim jsonBody As String  '// 需要拋送的 Line 訊息 的 Post 字串

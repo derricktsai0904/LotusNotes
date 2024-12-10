@@ -9,8 +9,8 @@ Line 官方帳號申請網址 :  https://developers.line.biz/en/
 
 ## 程式說明
 
-[以下程式來源 LED_Control.txt ]:[https://github.com/derricktsai0904/Arduino/blob/master/04%20NodeMCU/LEDControl/LED_Control.ino](https://github.com/derricktsai0904/Course/blob/main/2024.09%E6%84%9F%E6%B8%AC%E5%85%83%E4%BB%B6/Arduino%20LED%E9%9C%B9%E9%9D%82%E7%87%88/LED_Control.ino) "LED_Control.ino"
-[以下程式來源 LED_Control.txt ]
+[以下程式來源linebot_with_lotusscript.txt]:[https://github.com/derricktsai0904/LotusNotes/blob/master/LineBot_MessageAPI/linebot_with_lotusscript.txt](https://github.com/derricktsai0904/LotusNotes/blob/master/LineBot_MessageAPI/linebot_with_lotusscript.txt) "linebot_with_lotusscript.txt"
+[以下程式來源 linebot_with_lotusscript.txt ]
 ``` Lotus Script
 
 Sub Initialize

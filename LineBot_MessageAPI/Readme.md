@@ -6,8 +6,8 @@ Line 官方帳號申請網址 :  https://developers.line.biz/en/
 
 如下圖中，找到 Channel access token
 
-
-
+## Line Bot develope 管理頁面(Message API)
+>![](https://github.com/derricktsai0904/LotusNotes/blob/master/LineBot_MessageAPI/LineBotToken.jpg?raw=true)
 
 ## 程式說明
 
